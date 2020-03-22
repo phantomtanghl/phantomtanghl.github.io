@@ -1,20 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>HashMap学习笔记</title>
-    <url>/2020/03/22/HashMapStudy/</url>
-    <content><![CDATA[<p>记录个人对Java8中HashMap的部分原理的学习过程。</p>
+    <title>ConcurrentHashMap学习笔记</title>
+    <url>/2020/03/22/ConcurrentHashMapStudy/</url>
+    <content><![CDATA[<p>记录对ConcurrentHashMap的学习过程</p>
 <a id="more"></a>
 
-<h3 id="HashMap整体结构"><a href="#HashMap整体结构" class="headerlink" title="HashMap整体结构"></a>HashMap整体结构</h3><p>HashMap 底层的数据结构主要是：数组 + 链表 + 红黑树。其中当链表的长度大于等于 8 时，链表会转化成红黑树，当红黑树的大小小于等于 6 时，红黑树会转化成链表，整体的数据结构如下图：</p>
-<p><img src="https://s1.ax1x.com/2020/03/22/85iAg0.png" alt="85iAg0.png"></p>
-<p>左边竖着的是 HashMap 的数组结构，数组的元素可能是单个 Node，也可能是个链表，也可能是个红黑树，比如数组下标索引为 2 的位置就是一个链表，下标索引为 9 的位置对应的就是红黑树。</p>
 <h3 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h3><ol>
-<li>HashMap能够将键设为<strong>null</strong>，也可以将值设为<strong>null</strong>。  与之对应的是<strong>Hashtable</strong>(注意：不是HashTable)，Hashtable不能将键和值设为<strong>null</strong>，否则运行时会报空指针异常错误；</li>
-<li>loadFactor（影响因子） 默认值是 0.75， 是均衡了时间和空间损耗算出来的值，较高的<br>值会减少空间开销（扩容减少，数组大小增长速度变慢），但增加了查找成本（hash 冲<br>突增加，链表长度变长）。扩容条件：当前size = 数组容量n * loadFactor；</li>
-<li>默认的初始容量为16，如果有很多数据需要储存到 HashMap 中，建议 HashMap 的容量一开始就设置成足够的大小，这样可以防止在其过程中不断的扩容，影响性能；</li>
-<li>HashMap 是非线程安全的，我们可以自己在外部加锁，或者通过<code>Map m = Collections.synchronizedMap(new HashMap(...));</code>来实现线程安全，Collections.synchronizedMap 的实现是在每个方法上加上了 synchronized 锁；</li>
-<li>通过Node&lt;K,V&gt;[] table这样的数组存放数据。</li>
+<li>jdk1.8中抛弃了原有的 Segment 分段锁，而采用了 CAS + synchronized 来保证并发安全性；</li>
+<li>迭代过程中，即使 Map 结构被修改，也不会抛 ConcurrentModificationException 异常；</li>
+<li>除了数组 + 链表 + 红黑树的基本结构外，新增了转移节点，是为了保证扩容时的线程安全的节点；</li>
+</ol>
+<h3 id="CAS与自旋"><a href="#CAS与自旋" class="headerlink" title="CAS与自旋"></a>CAS与自旋</h3><p>CAS (compare and swap)  是乐观锁的一种实现方式，是一种轻量级锁，JUC 中很多工具类的实现就是基于 CAS 的。 线程在读取数据时不进行加锁，在准备写回数据时，先去查询原值，操作的时候比较原值是否修改，若未被其他线程修改则写回，若已被修改，则重新执行读取流程。</p>
+<p>乐观锁认为自己在使用数据时不会有别的线程修改数据，所以不会添加锁，只是在更新数据的时候去判断之前有没有别的线程更新了这个数据。 </p>
+<h3 id="插入元素时的线程安全性"><a href="#插入元素时的线程安全性" class="headerlink" title="插入元素时的线程安全性"></a>插入元素时的线程安全性</h3><ol>
+<li>通过自旋死循环保证一定可以新增成功：</li>
+</ol>
+<p>通过自旋死循环保证一定可以新增成功。在新增之前，通过 for (Node&lt;K,V&gt;[] tab = table;;) 这样的死循环来保证新增一定可以成功，一旦新增成功，就可以退出当前死循环，新增失败的话，会重复新增的步骤，直到新增成功为止。</p>
+<ol start="2">
+<li>当前数组节点元素为空时，通过 CAS 新增</li>
+</ol>
+<p>没有在判断数组节点为空的情况下直接赋值。因为在判断数组节点为空和赋值的瞬间，很有可能数组节点已经被其他线程赋值了，所以采用 CAS 算法，能够保证数组节点为空的情况下赋值成功，如果恰好数组节点已经被其他线程赋值，当前 CAS 操作失败，会再次执行 for自旋，再走数组节点有值的 put 流程，这里就是自旋 + CAS 的结合。</p>
+<ol start="3">
+<li>当前数组节点有值，锁住当前数组节点</li>
+</ol>
+<p>put 时，如果当前数组节点有值，也即哈希碰撞的情况，此时数组节点上可能是链表或红黑树，通过锁住数组节点，来保证同一时刻只会有一个线程能对此数组节点进行修改。</p>
+<ol start="4">
+<li>锁住红黑树的根节点</li>
+</ol>
+<p>在要对红黑树的节点进行旋转时，锁住红黑树的根节点，保证同一时刻，当前红黑树只能被一个线程旋转。</p>
+<h3 id="扩容时的线程安全性"><a href="#扩容时的线程安全性" class="headerlink" title="扩容时的线程安全性"></a>扩容时的线程安全性</h3><p>ConcurrentHashMap 的扩容时机和 HashMap 相同，都是在 put 方法的最后一步检查是否需要扩容，如果需要则进行扩容，但两者扩容的过程完全不同，ConcurrentHashMap 扩容的方法叫做 transfer，扩容方法的主要思路是：</p>
+<p>拷贝的过程是将旧数组中的元素依次拷贝到一个新数组中的过程。在拷贝旧数组的某个节点元素时，现将这个节点元素锁住，保证元素组的这个节点元素不能被操作。将这个节点元素成功拷贝到新数组后，将旧数组的这个节点设置为转移节点，每拷贝成功一次，就把原数组中的节点设置成转移节点。这时如果有新数据正好需要 put 到这个节点时，发现该节点为转移节点，就会一直等待，直到扩容成功之后，才能继续 put。所以在扩容完成之前，该节点元素对应的数据是不会发生变化的。</p>
+<h3 id="读操作"><a href="#读操作" class="headerlink" title="读操作"></a>读操作</h3><p>ConcurrentHashMap 的 get 方法非常简单也非常高效，<strong>因为整个过程都不需要加锁</strong>。 其查找的过程基本与HashMap相似。</p>
+<h3 id="快速失败-fail-fast-与安全失败-fail-safe"><a href="#快速失败-fail-fast-与安全失败-fail-safe" class="headerlink" title="快速失败(fail-fast)与安全失败(fail-safe)"></a>快速失败(fail-fast)与安全失败(fail-safe)</h3><ol>
+<li>快速失败</li>
+</ol>
+<p>在使用迭代器对集合对象进行遍历的时候，如果 A 线程正在对集合进行遍历，此时 B 线程对集合进行修改（增加、删除、修改），或者 A 线程在遍历过程中对集合进行修改，都会导致 A 线程抛出 ConcurrentModificationException 异常。</p>
+<ol start="2">
+<li>安全失败</li>
+</ol>
+<p>采用安全失败机制的集合容器，在遍历时不是直接在集合内容上访问的，而是先复制原有集合内容，在拷贝的集合上进行遍历。由于迭代时是对原集合的拷贝进行遍历，所以在遍历过程中对原集合所作的修改并不能被迭代器检测到，故不会抛 ConcurrentModificationException 异常</p>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a href="https://zhuanlan.zhihu.com/p/97902016" target="_blank" rel="noopener">《吊打面试官》系列-ConcurrentHashMap &amp; HashTable</a></p>
+<p><a href="https://zhuanlan.zhihu.com/p/49148823" target="_blank" rel="noopener">说说快速失败和安全失败是什么</a></p>
+<p>慕课网：ConcurrentHashMap 源码解析和设计思路</p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>Java学习笔记</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>HashMap学习笔记</title>
+    <url>/2020/03/22/HashMapStudy/</url>
+    <content><![CDATA[<p>记录对Java8中HashMap原理的学习过程。</p>
+<a id="more"></a>
+
+<h3 id="HashMap整体结构"><a href="#HashMap整体结构" class="headerlink" title="HashMap整体结构"></a>HashMap整体结构</h3><p>HashMap 底层的数据结构主要是：数组 + 链表 + 红黑树（JDK1.8新增红黑树）。其中当链表的长度大于等于 8 时，链表会转化成红黑树，当红黑树的大小小于等于 6 时，红黑树会转化成链表，整体的数据结构如下图：</p>
+<p><img src="https://s1.ax1x.com/2020/03/22/85iAg0.png" alt="85iAg0.png"></p>
+<p>Java中的HashMap采用了链地址法处理哈希冲突。左边竖着的是 HashMap 的数组结构，数组的元素可能是单个 Node，也可能是个链表，也可能是个红黑树，比如数组下标索引为 2 的位置就是一个链表，下标索引为 9 的位置对应的就是红黑树。</p>
+<h3 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h3><ol>
+<li><p>HashMap能够将键设为<strong>null</strong>，也可以将值设为<strong>null</strong>。  与之对应的是<strong>Hashtable</strong>(注意：不是HashTable)，Hashtable不能将键和值设为<strong>null</strong>，否则运行时会报空指针异常错误；</p>
+</li>
+<li><p>loadFactor（负载因子） 默认值是 0.75， 是均衡了时间和空间的一个选择 ，一般不建议修改。较高的值会减少空间开销（扩容减少，数组大小增长速度变慢），但增加了查找成本（hash 冲突增加，链表长度变长）。扩容条件：当前size = 数组容量n * loadFactor；</p>
+</li>
+<li><p>默认的初始容量为16，如果有很多数据需要储存到 HashMap 中，建议 HashMap 的容量一开始就设置成足够的大小，这样可以防止在其过程中不断的扩容，影响性能；</p>
+</li>
+<li><p>HashMap 是非线程安全的，我们可以自己在外部加锁，或者通过 <code>Map m = Collections.synchronizedMap(new HashMap(...));</code>来实现线程安全，Collections.synchronizedMap 的实现是在每个方法上加上了 synchronized 锁；</p>
+</li>
+<li><p>通过Node&lt;K,V&gt;[] table哈希桶数组存放数据。</p>
+</li>
 </ol>
 <h3 id="插入元素"><a href="#插入元素" class="headerlink" title="插入元素"></a>插入元素</h3><p>链表的新增元素就是把当前节点追加到链表的尾部，和 LinkedList 的追加实现是一样的。红黑树新增节点，如果节点没有实现 Comparable 接口，使用 equals 进行判断；如果节点自己实现了 Comparable 接口，使用compareTo 进行判断。</p>
 <p>当链表长度大&gt;= 8 时，此时的链表就会转化成红黑树，转化的方法是：treeifyBin，此方法有一个判断，当链表长度大于等于 8，并且整个数组大小大于 64 时，才会转成红黑树，当数组大小小于 64 时，只会触发扩容，不会转化成红黑树。</p>
@@ -23,11 +79,26 @@
 <blockquote>
 <p>The iterators returned by all of this class’s “collection view methods” are <em>fail-fast</em>: if the map is structurally modified at any time after the iterator is created, in any way except through the iterator’s own <code>remove</code> method, the iterator will throw a ConcurrentModificationException. Thus, in the face of concurrent modification, the iterator fails quickly and cleanly, rather than risking arbitrary, non-deterministic behavior at an undetermined time in the future. </p>
 </blockquote>
-<p>HashMap类中的 int modCount 属性记录了这个HashMap实例在结构上被修改的次数，包括新增、删除、rehash等改变了数据内部结构的修改操作。</p>
+<p>HashMap类中的 int modCount 属性记录了这个HashMap实例在结构上被修改的次数，包括新增、删除、rehash等改变了数据内部结构的修改操作（<strong>注意</strong>：某个key对应的value值被覆盖不属于结构变化） 。</p>
 <p>HashMap不是线程安全的，所以在使用迭代器或foreach遍历的时候,会将在遍历前先将modCount原有的值赋给迭代器的expectedModCount属性中，然后进行迭代。若在遍历的过程中，还调用了集合的put(), remove()方法，modCount就会因此被改变（每次进行结构修改操作都会 ++modCount）。若expectedModCount和ModCount不相等，就会抛出ConcurrentModificationException()异常。因为expectedModCount和ModCount这两个值不一致，就说明有多个线程在同时操作集合，这种操作是不确定的、有风险的。为了保证数据的正确性，避免不安全的情况发生，一旦返现这两个值不一致，就立即抛出异常。</p>
 <h3 id="HashMap为什么初始容量以及每次扩容后的容量都是2的幂次"><a href="#HashMap为什么初始容量以及每次扩容后的容量都是2的幂次" class="headerlink" title="HashMap为什么初始容量以及每次扩容后的容量都是2的幂次"></a>HashMap为什么初始容量以及每次扩容后的容量都是2的幂次</h3><p>首先，源码中是这样计算元素hash值所对应的数组索引的：</p>
 <p><code>(n - 1) &amp; hash</code></p>
-<p>为了高效的存取数据，需要尽量减少碰撞，也即将数据更平均的分配在数组当中，每个链表的长度能够大致相同。计算hash对应的索引值的方法实际上就是取模，例如数组容量为n，那么就可以用hash % n这样取模的方法来计算对应Index值。但是计算机处理取模运算是相对较慢的，效率不如位运算快。在容量n为 2次幂的情况下时，(n - 1) &amp; hash = hash % n。因为当n为2的整数次幂时，n-1的二进制位数上都为1，取余和位运算的结果相等，这么做能更高效。</p>
+<p>为了高效的存取数据，需要尽量减少碰撞，也即将数据更平均的分配在数组当中，每个链表的长度能够大致相同。计算hash对应的索引值的方法实际上就是取模，例如数组容量为n，那么就可以用hash % n这样取模的方法来计算对应Index值。但是计算机处理取模运算是相对较慢的，效率不如位运算快。在容量n为 2次幂的情况下时，(n - 1) &amp; hash = hash % n。因为当n为2的整数次幂时，n-1的二进制位数上都为1，取余和位运算的结果相等。这么做主要为了在扩容和取模时能更高效。</p>
+<p>附加：常规的设计是把桶的大小设计为素数，相对来说素数导致冲突的概率要小于合数 ，Java中的HashMap采用合数（2的幂次一定是合数）是一种非常规设计 。</p>
+<h3 id="HashCode高位参与运算"><a href="#HashCode高位参与运算" class="headerlink" title="HashCode高位参与运算"></a>HashCode高位参与运算</h3><p> 源码中的实现：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> <span class="title">hash</span><span class="params">(Object key)</span> </span>&#123;   <span class="comment">//jdk1.8 &amp; jdk1.7</span></span><br><span class="line">     <span class="keyword">int</span> h;</span><br><span class="line">     <span class="comment">// h = key.hashCode() 为第一步 取hashCode值</span></span><br><span class="line">     <span class="comment">// h ^ (h &gt;&gt;&gt; 16)  为第二步 高位参与运算</span></span><br><span class="line">     <span class="keyword">return</span> (key == <span class="keyword">null</span>) ? <span class="number">0</span> : (h = key.hashCode()) ^ (h &gt;&gt;&gt; <span class="number">16</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在JDK1.8的实现中，优化了高位运算的算法，通过hashCode()的高16位异或低16位实现的：(h = k.hashCode()) ^ (h &gt;&gt;&gt; 16)，主要是从速度、功效、质量来考虑的，这么做可以在数组table的长度比较小的时候，也能保证考虑到高低位都参与到Hash的计算中，同时不会有太大的开销。 </p>
+<p>下图举例说明了在数组长度较小时hashcode高位参与运算的过程：</p>
+<p><img src="https://s1.ax1x.com/2020/03/22/857kHf.png" alt="857kHf.png"></p>
+<h3 id="几种Map实现类的联系"><a href="#几种Map实现类的联系" class="headerlink" title="几种Map实现类的联系"></a>几种Map实现类的联系</h3><p><img src="https://s1.ax1x.com/2020/03/22/85ajkF.png" alt="85ajkF.png"></p>
+<ol>
+<li>HashMap: 常用</li>
+<li>Hashtable：Hashtable是遗留类，很多映射的常用功能与HashMap类似，不同的是它承自Dictionary类，并且是线程安全的，任一时间只有一个线程能写Hashtable，并发性不如ConcurrentHashMap，因为ConcurrentHashMap引入了分段锁。Hashtable不建议在新代码中使用，不需要线程安全的场合可以用HashMap替换，需要线程安全的场合可以用ConcurrentHashMap替换。 </li>
+<li>LinkedHashMap：LinkedHashMap是HashMap的一个子类，保存了记录的插入顺序，在用Iterator遍历LinkedHashMap时，先得到的记录肯定是先插入的，也可以在构造时带参数，按照访问次序排序。 </li>
+<li>TreeMap：TreeMap实现SortedMap接口，能够把它保存的记录根据键排序，默认是按键值的升序排序，也可以指定排序的比较器，当用Iterator遍历TreeMap时，得到的记录是排过序的。如果使用排序的映射，建议使用TreeMap。在使用TreeMap时，key必须实现Comparable接口或者在构造TreeMap传入自定义的Comparator，否则会在运行时抛出java.lang.ClassCastException类型的异常。 </li>
+</ol>
+<p><strong>注意</strong>：对于上述四种Map的实现类，要求映射中的key是不可变对象。不可变对象是该对象在创建后它的哈希值不会被改变。如果对象的哈希值发生变化，Map对象很可能就定位不到映射的位置了。因为String类是不可变的，在开发中常用String类型来作为映射的Key。</p>
 ]]></content>
       <categories>
         <category>Java</category>
@@ -46,7 +117,7 @@
 <a id="more"></a>
 
 <h3 id="测试博文"><a href="#测试博文" class="headerlink" title="测试博文"></a>测试博文</h3><p>欢迎访问我的博客~</p>
-<p>目前本博客采用next v7 作为主题，趟过了老版本的不少坑，如果你也要想搭建博客并使用next作为你的博客主题，一定要使用新版本，新老版本的在github上是不同的仓库</p>
+<p>目前本博客采用<strong>next v7</strong>作为主题，趟过了老版本的不少坑，如果你也要想搭建博客并使用next作为你的博客主题，强烈建议使用新版本，老版本的开发者已经不再维护了，新老版本的主题在github上是不同的仓库。<br><a href="https://github.com/theme-next/hexo-theme-next" target="_blank" rel="noopener">新版本next主题</a><br><a href="https://github.com/iissnan/hexo-theme-next" target="_blank" rel="noopener">老版本next主题</a></p>
 ]]></content>
       <categories>
         <category>随笔</category>
