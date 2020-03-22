@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>HashMapStudy</title>
+    <title>HashMap学习笔记</title>
     <url>/2020/03/22/HashMapStudy/</url>
-    <content><![CDATA[<h2 id="HashMap-学习笔记"><a href="#HashMap-学习笔记" class="headerlink" title="HashMap 学习笔记"></a>HashMap 学习笔记</h2><p>个人对Java8中的HashMap的原理进行学习后的小结。</p>
+    <content><![CDATA[<h2 id="HashMap-学习笔记"><a href="#HashMap-学习笔记" class="headerlink" title="HashMap 学习笔记"></a>HashMap 学习笔记</h2><p>个人对Java8中的HashMap的部分原理的学习笔记。</p>
 <a id="more"></a>
 
 <h3 id="modCount属性与fail-fast"><a href="#modCount属性与fail-fast" class="headerlink" title="modCount属性与fail-fast"></a>modCount属性与fail-fast</h3><p>Java8的官方文档在对HashMap的描述中有这么一段话：</p>
