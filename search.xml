@@ -6,13 +6,26 @@
     <content><![CDATA[<p>记录个人对Java8中HashMap的部分原理的学习过程。</p>
 <a id="more"></a>
 
+<h3 id="HashMap整体结构"><a href="#HashMap整体结构" class="headerlink" title="HashMap整体结构"></a>HashMap整体结构</h3><p>HashMap 底层的数据结构主要是：数组 + 链表 + 红黑树。其中当链表的长度大于等于 8 时，链表会转化成红黑树，当红黑树的大小小于等于 6 时，红黑树会转化成链表，整体的数据结构如下图：</p>
+<p><img src="https://s1.ax1x.com/2020/03/22/85iAg0.png" alt="85iAg0.png"></p>
+<p>左边竖着的是 HashMap 的数组结构，数组的元素可能是单个 Node，也可能是个链表，也可能是个红黑树，比如数组下标索引为 2 的位置就是一个链表，下标索引为 9 的位置对应的就是红黑树。</p>
+<h3 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h3><ol>
+<li>HashMap能够将键设为<strong>null</strong>，也可以将值设为<strong>null</strong>。  与之对应的是<strong>Hashtable</strong>(注意：不是HashTable)，Hashtable不能将键和值设为<strong>null</strong>，否则运行时会报空指针异常错误；</li>
+<li>loadFactor（影响因子） 默认值是 0.75， 是均衡了时间和空间损耗算出来的值，较高的<br>值会减少空间开销（扩容减少，数组大小增长速度变慢），但增加了查找成本（hash 冲<br>突增加，链表长度变长）。扩容条件：当前size = 数组容量n * loadFactor；</li>
+<li>默认的初始容量为16，如果有很多数据需要储存到 HashMap 中，建议 HashMap 的容量一开始就设置成足够的大小，这样可以防止在其过程中不断的扩容，影响性能；</li>
+<li>HashMap 是非线程安全的，我们可以自己在外部加锁，或者通过<code>Map m = Collections.synchronizedMap(new HashMap(...));</code>来实现线程安全，Collections.synchronizedMap 的实现是在每个方法上加上了 synchronized 锁；</li>
+<li>通过Node&lt;K,V&gt;[] table这样的数组存放数据。</li>
+</ol>
+<h3 id="插入元素"><a href="#插入元素" class="headerlink" title="插入元素"></a>插入元素</h3><p>链表的新增元素就是把当前节点追加到链表的尾部，和 LinkedList 的追加实现是一样的。红黑树新增节点，如果节点没有实现 Comparable 接口，使用 equals 进行判断；如果节点自己实现了 Comparable 接口，使用compareTo 进行判断。</p>
+<p>当链表长度大&gt;= 8 时，此时的链表就会转化成红黑树，转化的方法是：treeifyBin，此方法有一个判断，当链表长度大于等于 8，并且整个数组大小大于 64 时，才会转成红黑树，当数组大小小于 64 时，只会触发扩容，不会转化成红黑树。</p>
+<p>为什么链表长度&gt;=8转换为红黑树，这个阈值设为8的原因：链表查询的时间复杂度是 O (n)，红黑树的查询复杂度是 O (log (n))。在链表数据不多的时候，使用链表进行遍历也比较快，只有当链表数据比较多的时候，才会转化成红黑树，但红黑树需要的占用空间是链表的 2 倍，考虑到转化时间和空间损耗，所以我们需要定义出转化的边界值。链表的长度达到 8 ，出现的概率是 0.00000006，不到千万分之一，因此正常情况下，链表的长度不可能到达 8 ，而一旦到达 8 时，肯定是 hash 算法出了问题，所以在这种情况下，为了让 HashMap 仍然有较高的查询性能，所以让链表转化成红黑树。一般情况下使用 HashMap 时，几乎不会碰到链表转化成红黑树的情况。</p>
 <h3 id="modCount属性与fail-fast"><a href="#modCount属性与fail-fast" class="headerlink" title="modCount属性与fail-fast"></a>modCount属性与fail-fast</h3><p>Java8的官方文档在对HashMap的描述中有这么一段话：</p>
 <blockquote>
 <p>The iterators returned by all of this class’s “collection view methods” are <em>fail-fast</em>: if the map is structurally modified at any time after the iterator is created, in any way except through the iterator’s own <code>remove</code> method, the iterator will throw a ConcurrentModificationException. Thus, in the face of concurrent modification, the iterator fails quickly and cleanly, rather than risking arbitrary, non-deterministic behavior at an undetermined time in the future. </p>
 </blockquote>
 <p>HashMap类中的 int modCount 属性记录了这个HashMap实例在结构上被修改的次数，包括新增、删除、rehash等改变了数据内部结构的修改操作。</p>
 <p>HashMap不是线程安全的，所以在使用迭代器或foreach遍历的时候,会将在遍历前先将modCount原有的值赋给迭代器的expectedModCount属性中，然后进行迭代。若在遍历的过程中，还调用了集合的put(), remove()方法，modCount就会因此被改变（每次进行结构修改操作都会 ++modCount）。若expectedModCount和ModCount不相等，就会抛出ConcurrentModificationException()异常。因为expectedModCount和ModCount这两个值不一致，就说明有多个线程在同时操作集合，这种操作是不确定的、有风险的。为了保证数据的正确性，避免不安全的情况发生，一旦返现这两个值不一致，就立即抛出异常。</p>
-<h3 id="HashMap初始容量以及每次扩容后的容量都是2的幂次"><a href="#HashMap初始容量以及每次扩容后的容量都是2的幂次" class="headerlink" title="HashMap初始容量以及每次扩容后的容量都是2的幂次"></a>HashMap初始容量以及每次扩容后的容量都是2的幂次</h3><p>首先，源码中是这样计算元素hash值所对应的数组索引的：</p>
+<h3 id="HashMap为什么初始容量以及每次扩容后的容量都是2的幂次"><a href="#HashMap为什么初始容量以及每次扩容后的容量都是2的幂次" class="headerlink" title="HashMap为什么初始容量以及每次扩容后的容量都是2的幂次"></a>HashMap为什么初始容量以及每次扩容后的容量都是2的幂次</h3><p>首先，源码中是这样计算元素hash值所对应的数组索引的：</p>
 <p><code>(n - 1) &amp; hash</code></p>
 <p>为了高效的存取数据，需要尽量减少碰撞，也即将数据更平均的分配在数组当中，每个链表的长度能够大致相同。计算hash对应的索引值的方法实际上就是取模，例如数组容量为n，那么就可以用hash % n这样取模的方法来计算对应Index值。但是计算机处理取模运算是相对较慢的，效率不如位运算快。在容量n为 2次幂的情况下时，(n - 1) &amp; hash = hash % n。因为当n为2的整数次幂时，n-1的二进制位数上都为1，取余和位运算的结果相等，这么做能更高效。</p>
 ]]></content>
