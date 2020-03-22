@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>HashMapStudy</title>
+    <url>/2020/03/22/HashMapStudy/</url>
+    <content><![CDATA[<h2 id="HashMap-学习笔记"><a href="#HashMap-学习笔记" class="headerlink" title="HashMap 学习笔记"></a>HashMap 学习笔记</h2><p>个人对Java8中的HashMap的原理进行学习后的小结。</p>
+<a id="more"></a>
+
+<h3 id="modCount属性与fail-fast"><a href="#modCount属性与fail-fast" class="headerlink" title="modCount属性与fail-fast"></a>modCount属性与fail-fast</h3><p>Java8的官方文档在对HashMap的描述中有这么一段话：</p>
+<blockquote>
+<p>The iterators returned by all of this class’s “collection view methods” are <em>fail-fast</em>: if the map is structurally modified at any time after the iterator is created, in any way except through the iterator’s own <code>remove</code> method, the iterator will throw a ConcurrentModificationException. Thus, in the face of concurrent modification, the iterator fails quickly and cleanly, rather than risking arbitrary, non-deterministic behavior at an undetermined time in the future. </p>
+</blockquote>
+<p>HashMap类中的 int modCount 属性记录了这个HashMap实例在结构上被修改的次数，包括新增、删除、rehash等改变了数据内部结构的修改操作。</p>
+<p>HashMap不是线程安全的，所以在使用迭代器或foreach遍历的时候,会将在遍历前先将modCount原有的值赋给迭代器的expectedModCount属性中，然后进行迭代。若在遍历的过程中，还调用了集合的put(), remove()方法，modCount就会因此被改变（每次进行结构修改操作都会 ++modCount）。若expectedModCount和ModCount不相等，就会抛出ConcurrentModificationException()异常。因为expectedModCount和ModCount这两个值不一致，就说明有多个线程在同时操作集合，这种操作是不确定的、有风险的。为了保证数据的正确性，避免不安全的情况发生，一旦返现这两个值不一致，就立即抛出异常。</p>
+<h3 id="HashMap初始容量以及每次扩容后的容量都是2的幂次"><a href="#HashMap初始容量以及每次扩容后的容量都是2的幂次" class="headerlink" title="HashMap初始容量以及每次扩容后的容量都是2的幂次"></a>HashMap初始容量以及每次扩容后的容量都是2的幂次</h3><p>首先，源码中是这样计算元素hash值所对应的数组索引的：</p>
+<p><code>(n - 1) &amp; hash</code></p>
+<p>为了高效的存取数据，需要尽量减少碰撞，也即将数据更平均的分配在数组当中，每个链表的长度能够大致相同。计算hash对应的索引值的方法实际上就是取模，例如数组容量为n，那么就可以用hash % n这样取模的方法来计算对应Index值。但是计算机处理取模运算是相对较慢的，效率不如位运算快。在容量n为 2次幂的情况下时，(n - 1) &amp; hash = hash % n。因为当n为2的整数次幂时，n-1的二进制位数上都为1，取余和位运算的结果相等，这么做能更高效。</p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>Java学习笔记</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>你好，世界!</title>
     <url>/2020/03/15/my-first-blog/</url>
     <content><![CDATA[<p><img src="https://s1.ax1x.com/2020/03/13/8uFalD.jpg" alt="8uFalD.jpg"></p>
@@ -18,23 +41,5 @@
       <tags>
         <tag>测试</tag>
       </tags>
-  </entry>
-  <entry>
-    <title>Hello World</title>
-    <url>/2020/03/15/hello-world/</url>
-    <content><![CDATA[<p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="noopener">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/one-command-deployment.html" target="_blank" rel="noopener">Deployment</a></p>
-]]></content>
   </entry>
 </search>
