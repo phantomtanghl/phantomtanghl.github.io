@@ -1,6 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>ArrayList学习笔记</title>
+    <url>/2020/03/23/ArrayListStudy/</url>
+    <content><![CDATA[<p>记录对ArrayList的学习过程</p>
+<a id="more"></a>
+
+<h3 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h3><ol>
+<li>ArrayList 整体架构比较简单，就是一个数组结构；</li>
+<li>动态数组，容量可变； </li>
+<li>modCount 统计当前数组被修改的版本次数，数组结构有变动，就会 +1。增强 for 循环，或者使用迭代器迭代过程中，如果数组大小被改变，会快速失败，抛出异常；</li>
+<li>允许插入null 值。</li>
+</ol>
+<h3 id="初始化"><a href="#初始化" class="headerlink" title="初始化"></a>初始化</h3><p>通过无参构造方法的方式ArrayList()初始化，则赋值底层数<code>Object[] elementData</code>为一个默认空数组<code>Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {}</code>所以数组容量为0，只有真正对数据进行添加add时，才分配默认<code>DEFAULT_CAPACITY = 10</code>的初始容量。</p>
+<h3 id="扩容"><a href="#扩容" class="headerlink" title="扩容"></a>扩容</h3><p>扩容后的容量是原容量的1.5倍。扩容的时候，Java8以后的效率更高了，采用了位运算，增量是将当前数组长度<strong>右移</strong>一位得到的（length/2）。 </p>
+<h3 id="指定位置set方法的问题"><a href="#指定位置set方法的问题" class="headerlink" title="指定位置set方法的问题"></a>指定位置set方法的问题</h3><p>在初始化的时候指定ArrayList的初始容量，但是此时list的siez还是为0。若在此时调用<code>set(int index, E element)</code>，如果指定的index为2,3…这样的位置，是会报数组下标越界异常的。唯一方法是在使用构造函数后，根据需要使用add()多次。原因是其实数组是初始化了，但是List没，那size就没变，set下标是和size比较的那就报错了。 </p>
+<h3 id="线程安全"><a href="#线程安全" class="headerlink" title="线程安全"></a>线程安全</h3><p>非线程安全，线程安全版本的数组容器是Vector，Vector实现线程安全的方式是给所有的方法统统加上synchronized。也可以不使用Vector，用Collections.synchronizedList把一个普通ArrayList包装成一个线程安全版本的数组容器也可以，原理同Vector是一样的，就是给所有的方法套上一层synchronized。</p>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a href="https://zhuanlan.zhihu.com/p/101574379" target="_blank" rel="noopener">敖丙: ArrayList</a></p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>Java学习笔记</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>ConcurrentHashMap学习笔记</title>
     <url>/2020/03/22/ConcurrentHashMapStudy/</url>
     <content><![CDATA[<p>记录对ConcurrentHashMap的学习过程</p>
@@ -39,7 +64,8 @@
 <ol start="2">
 <li>安全失败</li>
 </ol>
-<p>采用安全失败机制的集合容器，在遍历时不是直接在集合内容上访问的，而是先复制原有集合内容，在拷贝的集合上进行遍历。由于迭代时是对原集合的拷贝进行遍历，所以在遍历过程中对原集合所作的修改并不能被迭代器检测到，故不会抛 ConcurrentModificationException 异常</p>
+<p>采用安全失败机制的集合容器，在遍历时不是直接在集合内容上访问的，而是先复制原有集合内容，在拷贝的集合上进行遍历。由于迭代时是对原集合的拷贝进行遍历，所以在遍历过程中对原集合所作的修改并不能被迭代器检测到，故不会抛 ConcurrentModificationException 异常。</p>
+<h3 id="与Hashtable对比"><a href="#与Hashtable对比" class="headerlink" title="与Hashtable对比"></a>与Hashtable对比</h3><p>Hashtable目前使用较少，其直接在方法上锁，相当于整表上锁，并发度很低，最多同时允许一个线程访问。ConcurrentHashMap的并发度比其好很多。</p>
 <h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a href="https://zhuanlan.zhihu.com/p/97902016" target="_blank" rel="noopener">《吊打面试官》系列-ConcurrentHashMap &amp; HashTable</a></p>
 <p><a href="https://zhuanlan.zhihu.com/p/49148823" target="_blank" rel="noopener">说说快速失败和安全失败是什么</a></p>
 <p>慕课网：ConcurrentHashMap 源码解析和设计思路</p>
@@ -75,6 +101,17 @@
 <h3 id="插入元素"><a href="#插入元素" class="headerlink" title="插入元素"></a>插入元素</h3><p>链表的新增元素就是把当前节点追加到链表的尾部，和 LinkedList 的追加实现是一样的。红黑树新增节点，如果节点没有实现 Comparable 接口，使用 equals 进行判断；如果节点自己实现了 Comparable 接口，使用compareTo 进行判断。</p>
 <p>当链表长度大&gt;= 8 时，此时的链表就会转化成红黑树，转化的方法是：treeifyBin，此方法有一个判断，当链表长度大于等于 8，并且整个数组大小大于 64 时，才会转成红黑树，当数组大小小于 64 时，只会触发扩容，不会转化成红黑树。</p>
 <p>为什么链表长度&gt;=8转换为红黑树，这个阈值设为8的原因：链表查询的时间复杂度是 O (n)，红黑树的查询复杂度是 O (log (n))。在链表数据不多的时候，使用链表进行遍历也比较快，只有当链表数据比较多的时候，才会转化成红黑树，但红黑树需要的占用空间是链表的 2 倍，考虑到转化时间和空间损耗，所以我们需要定义出转化的边界值。链表的长度达到 8 ，出现的概率是 0.00000006，不到千万分之一，因此正常情况下，链表的长度不可能到达 8 ，而一旦到达 8 时，肯定是 hash 算法出了问题，所以在这种情况下，为了让 HashMap 仍然有较高的查询性能，所以让链表转化成红黑树。一般情况下使用 HashMap 时，几乎不会碰到链表转化成红黑树的情况。</p>
+<h3 id="扩容"><a href="#扩容" class="headerlink" title="扩容"></a>扩容</h3><h4 id="rehash"><a href="#rehash" class="headerlink" title="rehash"></a>rehash</h4><p>为什么要重新计算hash？因为数组的长度值是参与到哈希运算中的，容量改变时数组长度发生改变意味着哈希的规则发生了变化，所以要对每个元素重新hash。</p>
+<h4 id="链表头插与尾插"><a href="#链表头插与尾插" class="headerlink" title="链表头插与尾插"></a>链表头插与尾插</h4><p><strong>java8之前是头插法</strong>，就是说新来的值会取代原有的值，原有的值就顺推到链表中去，因为代码的作者认为后来的值被查找的可能性更大一点，提升查找的效率。但是在java8之后，都是改用尾部插入了。因为在扩容时，头插法可能导致循环链表。从Java8开始改用尾插法。</p>
+<p>Java7在多线程操作HashMap时可能引起死循环，原因是扩容转移后前后链表顺序倒置，在转移过程中修改了原来链表中节点的引用关系。</p>
+<p>Java8在同样的前提下并不会引起死循环，因为使用尾插法，使得扩容转移后前后链表顺序不变，保持之前节点的引用关系。</p>
+<h3 id="查找"><a href="#查找" class="headerlink" title="查找"></a>查找</h3><h4 id="根据key进行查找："><a href="#根据key进行查找：" class="headerlink" title="根据key进行查找："></a>根据key进行查找：</h4><p>HashMap 的查找主要分为以下三步：</p>
+<ol>
+<li>根据 hash 算法定位数组的索引位置，使用equals 方法判断当前节点是否是我们需要寻找的 key，是的话直接返回。</li>
+<li>判断当前节点有无 next 节点，有的话判断是链表类型，还是红黑树类型。</li>
+<li>分别走链表和红黑树不同类型的查找方法。</li>
+</ol>
+<h4 id="类作为Key时重写equals方法并要重写hashCode方法"><a href="#类作为Key时重写equals方法并要重写hashCode方法" class="headerlink" title="类作为Key时重写equals方法并要重写hashCode方法"></a>类作为Key时重写equals方法并要重写hashCode方法</h4><p>equals(), hashCode()方法都是Object类中的方法，可以使用这两个方法来判断两个对象是否相等。 Object的equals方法比较的是两个对象的内存地址。 如果对equals()方法进行了重写，一定要对hashCode()方法重写，以保证相同的对象返回相同的hash值，不同的对象返回不同的hash值。 </p>
 <h3 id="modCount属性与fail-fast"><a href="#modCount属性与fail-fast" class="headerlink" title="modCount属性与fail-fast"></a>modCount属性与fail-fast</h3><p>Java8的官方文档在对HashMap的描述中有这么一段话：</p>
 <blockquote>
 <p>The iterators returned by all of this class’s “collection view methods” are <em>fail-fast</em>: if the map is structurally modified at any time after the iterator is created, in any way except through the iterator’s own <code>remove</code> method, the iterator will throw a ConcurrentModificationException. Thus, in the face of concurrent modification, the iterator fails quickly and cleanly, rather than risking arbitrary, non-deterministic behavior at an undetermined time in the future. </p>
@@ -93,12 +130,15 @@
 <p><img src="https://s1.ax1x.com/2020/03/22/857kHf.png" alt="857kHf.png"></p>
 <h3 id="几种Map实现类的联系"><a href="#几种Map实现类的联系" class="headerlink" title="几种Map实现类的联系"></a>几种Map实现类的联系</h3><p><img src="https://s1.ax1x.com/2020/03/22/85ajkF.png" alt="85ajkF.png"></p>
 <ol>
-<li>HashMap：常用</li>
+<li>HashMap: 常用</li>
 <li>Hashtable：Hashtable是遗留类，很多映射的常用功能与HashMap类似，不同的是它承自Dictionary类，并且是线程安全的，任一时间只有一个线程能写Hashtable，并发性不如ConcurrentHashMap，因为ConcurrentHashMap引入了分段锁。Hashtable不建议在新代码中使用，不需要线程安全的场合可以用HashMap替换，需要线程安全的场合可以用ConcurrentHashMap替换。 </li>
 <li>LinkedHashMap：LinkedHashMap是HashMap的一个子类，保存了记录的插入顺序，在用Iterator遍历LinkedHashMap时，先得到的记录肯定是先插入的，也可以在构造时带参数，按照访问次序排序。 </li>
 <li>TreeMap：TreeMap实现SortedMap接口，能够把它保存的记录根据键排序，默认是按键值的升序排序，也可以指定排序的比较器，当用Iterator遍历TreeMap时，得到的记录是排过序的。如果使用排序的映射，建议使用TreeMap。在使用TreeMap时，key必须实现Comparable接口或者在构造TreeMap传入自定义的Comparator，否则会在运行时抛出java.lang.ClassCastException类型的异常。 </li>
 </ol>
 <p><strong>注意</strong>：对于上述四种Map的实现类，要求映射中的key是不可变对象。不可变对象是该对象在创建后它的哈希值不会被改变。如果对象的哈希值发生变化，Map对象很可能就定位不到映射的位置了。因为String类是不可变的，在开发中常用String类型来作为映射的Key。</p>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p>慕课网：HashMap 源码解析</p>
+<p><a href="https://www.cnblogs.com/xiarongjin/p/8310691.html" target="_blank" rel="noopener">美团技术团队：重新认识HashMap</a></p>
+<p><a href="https://zhuanlan.zhihu.com/p/96426441" target="_blank" rel="noopener">敖丙 ：HashMap</a></p>
 ]]></content>
       <categories>
         <category>Java</category>
