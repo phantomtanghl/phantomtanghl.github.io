@@ -1,6 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>String学习笔记</title>
+    <url>/2020/03/25/StringStudy/</url>
+    <content><![CDATA[<p>记录对String的学习过程</p>
+<a id="more"></a>
+
+<h3 id="不可变性"><a href="#不可变性" class="headerlink" title="不可变性"></a>不可变性</h3><ol>
+<li><p>String 类被 final 修饰，说明 String 类绝不可能被继承了，也就是说任何对 String 的操作方法，都不会被子类重写。</p>
+</li>
+<li><p>String 中保存数据的是一个被<code>final</code>修饰的 char 数组 value（ 在 Java 9 之后，String 类的实现改用 byte 数组存储字符串： <code>private final byte[] value</code> ）。也就是说 value 一旦被赋值，内存地址是绝对无法修改的，而且 value 是private的，外部绝对访问不到，String 也没有开放出可以对 value 进行赋值的方法，所以说value 一旦产生，内存地址就根本无法被修改。</p>
+</li>
+</ol>
+<p>以上两点就是 String 不变性的原因，在设计时充分利用了 final 关键字的特性。因为 String 具有不变性，所以 String 的大多数操作方法，都会返回新的 String对象。</p>
+<h3 id="String-amp-StringBuffer-amp-StringBuilder-区别"><a href="#String-amp-StringBuffer-amp-StringBuilder-区别" class="headerlink" title="String &amp; StringBuffer &amp; StringBuilder 区别"></a>String &amp; StringBuffer &amp; StringBuilder 区别</h3><ol>
+<li><p><strong>可变性</strong>：String 类型不可变，StringBuilder 和 StringBuffer是可变的。</p>
+</li>
+<li><p><strong>线程安全性</strong>：String 类型的对象是不可变的，可理解为常量，故线程安全。</p>
+<p><strong>StringBuffer-线程安全，StringBuilder-线程不安全。</strong>原因：AbstractStringBuilder 是 StringBuilder 与 StringBuffer 的公共父类，定义了一些字符串的基本操作，如 expandCapacity、append、insert、indexOf 等公共方法。StringBuffer 对方法加了同步锁或者对调用的方法加了同步锁，所以是线程安全的。StringBuilder 并没有对方法进行加同步锁，所以是非线程安全的。</p>
+</li>
+<li><p><strong>性能</strong>：每次对 String 类型进行改变的时候，都会生成一个新的 String 对象，然后将指针指向新的 String 对象。StringBuffer  &amp; StringBuilder每次都会对对象本身进行操作，而不是生成新的对象并改变对象引用，性能更好。</p>
+</li>
+<li><p><strong>总结</strong>：操作少量的数据，适用 String；单线程操作字符串缓冲区下操作大量数据， 适用 StringBuilder；多线程操作字符串缓冲区下操作大量数据，适用 StringBuffer。</p>
+</li>
+</ol>
+<h3 id="String类设计为不可变的好处"><a href="#String类设计为不可变的好处" class="headerlink" title="String类设计为不可变的好处"></a>String类设计为不可变的好处</h3><ol>
+<li><strong>字符串常量池的需要</strong>：只有当字符串是不可变的，字符串池才有可能实现。字符串池的实现可以在运行时节约很多heap空间，因为不同的字符串引用可以指向池中的同一个字符串。但如果字符串是可变的，如果变量改变了它的值，那么其它指向这个值的变量的值也会一起改变。</li>
+<li><strong>缓存 Hashcode</strong>：因为字符串是不可变的，所以在它创建的时候hashcode就被缓存了，不需要重新计算，这就使得字符串很适合作为Map中的键，字符串的处理速度要快过其它的键对象。这就是HashMap中的键往往都使用字符串的原因。</li>
+<li><strong>不可变对象是线程安全的</strong>：因为字符串是不可变的，所以是多线程安全的，同一个字符串实例可以被多个线程共同使用。不用因为线程安全问题而使用同步操作。</li>
+<li><strong>安全性</strong>：如果字符串是可变的，那么会引起很严重的安全问题。譬如，数据库的用户名、密码都是以字符串的形式传入数据库，以获得数据库的连接，或者在socket编程中，主机名和端口都是以字符串的形式传入。因为字符串是不可变的，所以它的值是不可改变的，否则黑客们可以钻到空子，改变字符串指向的对象的值，造成安全漏洞。并且，类加载器要用到字符串，不可变性提供了安全性，以便正确的类被加载。</li>
+</ol>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p>慕课网：String源码解析</p>
+<p><a href="https://www.cnblogs.com/xzwblog/p/7230366.html" target="_blank" rel="noopener">为什么String类是不可变的？</a></p>
+<p><a href="https://github.com/Snailclimb" target="_blank" rel="noopener">Snailclimb</a>/<a href="https://github.com/Snailclimb/JavaGuide" target="_blank" rel="noopener">JavaGuide</a></p>
+]]></content>
+      <categories>
+        <category>Java</category>
+      </categories>
+      <tags>
+        <tag>Java学习笔记</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>ArrayList学习笔记</title>
     <url>/2020/03/23/ArrayListStudy/</url>
     <content><![CDATA[<p>记录对ArrayList的学习过程</p>
